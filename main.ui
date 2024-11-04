@@ -20,29 +20,17 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
-         <widget class="QLabel" name="cameraLocationL_1">
+         <widget class="QLabel" name="label">
           <property name="text">
            <string>Расположение:</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="cameraLocationCB_1">
-          <item>
-           <property name="text">
-            <string/>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Въезд</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Выезд</string>
-           </property>
-          </item>
+         <widget class="QLabel" name="cameraLocationL_1">
+          <property name="text">
+           <string>Въезд</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -76,7 +64,7 @@
          <string notr="true"/>
         </property>
         <property name="text">
-         <string>Plate 1</string>
+         <string/>
         </property>
         <property name="scaledContents">
          <bool>false</bool>
@@ -110,22 +98,10 @@
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="cameraLocationCB_2">
-          <item>
-           <property name="text">
-            <string/>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Въезд</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Выезд</string>
-           </property>
-          </item>
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Выезд</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -159,7 +135,7 @@
          <string notr="true"/>
         </property>
         <property name="text">
-         <string>Plate 1</string>
+         <string/>
         </property>
         <property name="scaledContents">
          <bool>false</bool>
