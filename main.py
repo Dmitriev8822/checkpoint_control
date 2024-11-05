@@ -1,6 +1,6 @@
 import numpy as np
 from PyQt5 import uic, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
+from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QWidget, QTableWidgetItem
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -206,8 +206,76 @@ class CameraUnit:
             self.nnWorker.stop()
             self.nnWorker = None
 
-        self.plateOutLabel.setText("")
+        self.db.close()
+
+        self.plateOutLabel.clear()
         self.videoLabel.clear()
+        self.videoLabel.setText("Video")
+
+
+class TableWindow(QWidget):  # Наследуемся от QWidget
+    def __init__(self):
+        super().__init__()
+
+        uic.loadUi('cars_table.ui', self)
+
+        self.db_manager = DatabaseManager()
+        self.data = self.db_manager.get_all_cars()
+
+        self.tableWidget.setRowCount(len(self.data))
+        self.tableWidget.setColumnCount(3)
+        self.tableWidget.setHorizontalHeaderLabels(["Номер", "Позиция", "Время"])
+
+        # Заполняем таблицу данными
+        for row_index, row_data in enumerate(self.data):
+            for col_index, value in enumerate(row_data[1:]):
+                item = QTableWidgetItem(str(value))
+                self.tableWidget.setItem(row_index, col_index, item)
+
+        # Закрываем соединение с БД при закрытии окна
+        self.destroyed.connect(self.db_manager.close)
+
+
+class TestWindow(QWidget):  # Наследуемся от QWidget
+    def __init__(self, image):
+        super().__init__()
+
+        uic.loadUi('test_window.ui', self)
+
+        frame = image
+
+        height, width, channels = image.shape
+        bytes_per_line = channels * width
+        q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+
+        pixmap = QPixmap.fromImage(q_image)
+        self.videoL_1.setPixmap(pixmap7)
+
+        self.nnWorker = NnWorker()
+        self.nnWorker.resultsReady.connect(self.handleNnResults)
+        self.nnWorker.add_frame(frame)
+        self.nnWorker.start()
+
+    def handleNnResults(self, plate: str):
+        self.resultPlateOutL_1.setText(plate)
+        self.nnWorker.clear_queue()
+        self.nnWorker.stop()
+
+
+    def processFrame(self, image):
+        frame = image.convertToFormat(QImage.Format_RGB888)
+        width = frame.width()
+        height = frame.height()
+        ptr = frame.bits()
+        ptr.setsize(frame.byteCount())
+        frame = np.array(ptr).reshape(height, width, 3)
+
+        # Преобразуем изображение в формат cv2
+        frame_cv2 = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        return frame_cv2
+
+
 
 
 class Ui(QMainWindow):
@@ -223,9 +291,16 @@ class Ui(QMainWindow):
         self.cameraNameCB_1.currentIndexChanged.connect(self.runCamera)
         self.cameraNameCB_2.currentIndexChanged.connect(self.runCamera)
 
+        self.action.triggered.connect(self.carsTable)
+        self.actionImage.triggered.connect(self.openImage)
+
         self.activeCameraUnits = list()
 
         self.show()
+
+    def carsTable(self):
+        self.table_window = TableWindow()  # Создаем экземпляр окна с таблицей
+        self.table_window.show()
 
     def runCamera(self) -> int:
         comboBox = self.sender()
@@ -273,6 +348,10 @@ class Ui(QMainWindow):
         if file_name:
             image = cv2.imread(file_name)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            self.test_window = TestWindow(image)  # Создаем экземпляр окна с таблицей
+            self.test_window.show()
+
 
 
 if __name__ == '__main__':

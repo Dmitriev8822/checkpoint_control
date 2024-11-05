@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Система контроля КПП</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_7">
@@ -175,11 +175,23 @@
     </property>
     <addaction name="actionImage"/>
    </widget>
+   <widget class="QMenu" name="menu_2">
+    <property name="title">
+     <string>База данных</string>
+    </property>
+    <addaction name="action"/>
+   </widget>
    <addaction name="menu"/>
+   <addaction name="menu_2"/>
   </widget>
   <action name="actionImage">
    <property name="text">
     <string>Фото</string>
+   </property>
+  </action>
+  <action name="action">
+   <property name="text">
+    <string>Записи</string>
    </property>
   </action>
  </widget>
