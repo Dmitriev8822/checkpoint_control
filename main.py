@@ -1,6 +1,7 @@
 import numpy as np
 from PyQt5 import uic, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QWidget, QTableWidgetItem, QVBoxLayout, QLabel, \
+    QHBoxLayout, QComboBox
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -12,16 +13,11 @@ import sys
 import queue
 import time
 
-from YOLO.yolov8 import main as nn
 from db import DatabaseManager
+from threads import CameraUnit, NnWorker
 
-FPS = 120
+blockIndex = 2
 
-frame_processing_time = list()
-
-
-# cnt_frames = 0
-# cnt_nn_frames = 0
 
 def excepthook(exc_type, exc_value, exc_tb):
     tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -34,183 +30,6 @@ sys.excepthook = excepthook
 
 def logAction():
     pass
-
-
-class NnWorker(QThread):
-    resultsReady = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-        self.frame_queue = queue.Queue()
-        self.running = True
-
-    def add_frame(self, frame):
-        self.frame_queue.put(frame)
-
-    def clear_queue(self):
-        with self.frame_queue.mutex:
-            self.frame_queue.queue.clear()
-
-    def run(self):
-        while self.running:
-            if not self.frame_queue.empty():
-                print(f'Queue size: {self.frame_queue.qsize()}')
-                frame = self.frame_queue.get()
-                if self.frame_queue.qsize() > 2:
-                    self.clear_queue()
-
-                predicts = nn(frame)
-                print("Raw list", predicts)
-                predicts = list(filter(self.isNormalPlate, predicts))
-                predicts.sort(key=lambda predict: -(predict[1][2] - predict[1][0]))
-                print("After filter and sort list", predicts)
-                predict = "Not recognized"
-                if predicts != list():
-                    predict = predicts[0][0]
-
-                self.resultsReady.emit(predict)
-
-    def isNormalPlate(self, predict: tuple) -> bool:
-        import re
-        plate = predict[0]
-        pattern = r'^[A-Za-z]\d{3}[A-Za-z]{2}\d{2}\d?$'
-        return bool(re.match(pattern, plate))
-
-    def stop(self):
-        self.running = False
-        self.quit()
-        self.wait()
-
-
-class CameraThread(QThread):
-    # Сигнал для передачи кадра в основное приложение
-    frameSignal = pyqtSignal(QImage)
-
-    def __init__(self, cameraIndex):
-        super().__init__()
-
-        self.cap = cv2.VideoCapture(cameraIndex)
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.updateFrame)
-        self.fps = 1000 // FPS
-        self.timer.start(self.fps)
-
-    def updateFrame(self):
-        ret, frame = self.cap.read()
-        if ret:
-            # Конвертируем кадр в формат QImage
-            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_image.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            self.frameSignal.emit(qt_image)
-
-    def stop(self):
-        self.timer.stop()
-        self.cap.release()
-        self.quit()
-        self.wait()
-
-
-class CameraUnit:
-    def __init__(self, blockID, cameraIndex, videoLabel, plateOutLabel):
-        # временно и криво
-        self.pos = "Въезд" if blockID == 1 else "Выезд"
-
-        self.blockID = blockID
-        self.cameraIndex = cameraIndex
-        self.videoLabel = videoLabel
-        self.plateOutLabel = plateOutLabel
-        self.frameCount = 0
-
-        self.timeStart = int(time.time()) % 100
-        self.countFPS = 0
-
-        self.nnWorker = NnWorker()
-        self.nnWorker.resultsReady.connect(self.handleNnResults)
-        self.nnWorker.start()
-
-        self.cameraTheard = None
-
-        self.mostPopularPlate = None
-        self.recPlates = list()
-        self.recPlatesCntEmpty = 0
-
-        self.db = DatabaseManager()
-        self.connectDB()
-
-    def connectDB(self):
-        self.db.connect()
-        self.db.create_table()
-
-    def runCamera(self):
-        self.cameraTheard = CameraThread(self.cameraIndex)
-        self.cameraTheard.frameSignal.connect(self.updateFrame)
-        self.cameraTheard.start()
-
-    def countFrames(self) -> None:
-        if (int(time.time()) % 100) != self.timeStart:
-            self.timeStart = int(time.time()) % 100
-            print(f'FPS: {self.countFPS}')
-            self.countFPS = 0
-        self.countFPS += 1
-
-    def updateFrame(self, image):
-        self.countFrames()
-        frame = QPixmap.fromImage(image)
-        self.videoLabel.setPixmap(frame)
-        self.frameCount += 1
-
-        if self.frameCount % 10 == 0:
-            self.processFrame(image)
-
-    def processFrame(self, image):
-        frame = image.convertToFormat(QImage.Format_RGB888)
-        width = frame.width()
-        height = frame.height()
-        ptr = frame.bits()
-        ptr.setsize(frame.byteCount())
-        frame = np.array(ptr).reshape(height, width, 3)
-
-        # Преобразуем изображение в формат cv2
-        frame_cv2 = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-        self.nnWorker.add_frame(frame_cv2)
-
-    def handleNnResults(self, result: str) -> None:
-        if result != "Not recognized":
-            self.recPlates.append(result)
-            if len(self.recPlates) > 10:
-                self.getMostPopularPlate()
-                self.plateOutLabel.setText(self.mostPopularPlate)
-
-    def getMostPopularPlate(self) -> None:
-        if self.recPlates.count(self.mostPopularPlate) > 0:
-            self.recPlates.extend([self.mostPopularPlate] * int(len(self.recPlates) * 0.5))
-
-        for plate in self.recPlates:
-            lPlateCnt = self.recPlates.count(plate)
-            if lPlateCnt >= int(len(self.recPlates) * 0.6):
-                if self.mostPopularPlate != plate:
-                    self.db.add_car(plate, self.pos)
-                self.mostPopularPlate = plate
-        self.recPlates = list()
-
-    def stopCamera(self):
-        if self.cameraTheard is not None:
-            self.cameraTheard.stop()
-            self.cameraTheard = None
-
-        if self.nnWorker is not None:
-            self.nnWorker.clear_queue()
-            self.nnWorker.stop()
-            self.nnWorker = None
-
-        self.db.close()
-
-        self.plateOutLabel.clear()
-        self.videoLabel.clear()
-        self.videoLabel.setText("Video")
 
 
 class TableWindow(QWidget):  # Наследуемся от QWidget
@@ -249,7 +68,7 @@ class TestWindow(QWidget):  # Наследуемся от QWidget
         q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
 
         pixmap = QPixmap.fromImage(q_image)
-        self.videoL_1.setPixmap(pixmap7)
+        self.videoL_1.setPixmap(pixmap)
 
         self.nnWorker = NnWorker()
         self.nnWorker.resultsReady.connect(self.handleNnResults)
@@ -260,7 +79,6 @@ class TestWindow(QWidget):  # Наследуемся от QWidget
         self.resultPlateOutL_1.setText(plate)
         self.nnWorker.clear_queue()
         self.nnWorker.stop()
-
 
     def processFrame(self, image):
         frame = image.convertToFormat(QImage.Format_RGB888)
@@ -274,8 +92,6 @@ class TestWindow(QWidget):  # Наследуемся от QWidget
         frame_cv2 = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         return frame_cv2
-
-
 
 
 class Ui(QMainWindow):
@@ -353,8 +169,157 @@ class Ui(QMainWindow):
             self.test_window.show()
 
 
+class Ui2(QMainWindow):
+    def __init__(self):
+        super(Ui2, self).__init__()
+        self.ui()
+
+    def ui(self):
+        uic.loadUi('main3.ui', self)  # Load the .ui file
+        # self.fillAvailableCameras([self.cameraNameCB_1, self.cameraNameCB_2])
+
+        # self.cameraNameCB_1.currentIndexChanged.connect(self.runCamera)
+        # self.cameraNameCB_2.currentIndexChanged.connect(self.runCamera)
+
+        self.A_notes.triggered.connect(self.carsTable)
+        self.A_photo.triggered.connect(self.openImage)
+        self.A_add.triggered.connect(self.addCameraBlock)
+        self.A_update.triggered.connect(self.fillAvailableCameras)
+
+        self.activeCameraUnits = list()
+
+        self.show()
+
+    def addCameraBlock(self) -> None:
+        global blockIndex
+
+        # создание расположений (layout)
+        VL_cameraBlock = QVBoxLayout()
+        VL_cameraBlock.setObjectName(f'VL_cameraBlock_{blockIndex}')
+
+        HL_cameraPosition = QHBoxLayout()
+        HL_cameraPosition.setObjectName(f'HL_cameraPosition_{blockIndex}')
+
+        HL_cameraIndex = QHBoxLayout()
+        HL_cameraIndex.setObjectName(f'HL_cameraIndex_{blockIndex}')
+
+        HL_cameraName = QHBoxLayout()
+        HL_cameraName.setObjectName(f'HL_cameraName_{blockIndex}')
+
+        # создание меток (label)
+        L_cameraName = QLabel(f'Камера №{blockIndex}')
+        L_cameraName.setObjectName(f'L_cameraName_{blockIndex}')
+
+        L_resultPlateOut = QLabel("Номер")
+        L_resultPlateOut.setObjectName(f'L_resultPlateOut_{blockIndex}')
+
+        L_videoOut = QLabel("Видео")
+        L_videoOut.setObjectName(f'L_videoOut_{blockIndex}')
+
+        L_cameraPosition = QLabel("Расположение:")
+        L_cameraPosition.setObjectName(f'L_cameraPosition_{blockIndex}')
+
+        L_cameraIndex = QLabel("Камера:")
+        L_cameraIndex.setObjectName(f'L_cameraIndex_{blockIndex}')
+
+        # создание выпадающих списков (combo box)
+        CB_cameraPosition = QComboBox()
+        CB_cameraPosition.setObjectName(f'CB_cameraPosition_{blockIndex}')
+        CB_cameraPosition.addItem('')
+        CB_cameraPosition.addItem('Въезд')
+        CB_cameraPosition.addItem('Выезд')
+
+        CB_cameraIndex = QComboBox()
+        CB_cameraIndex.setObjectName(f'CB_cameraIndex_{blockIndex}')
+
+        # добавление всех элементов
+        self.HL_mainLayout.addLayout(VL_cameraBlock)
+
+        VL_cameraBlock.addWidget(L_cameraName)
+        VL_cameraBlock.addLayout(HL_cameraPosition)
+        VL_cameraBlock.addLayout(HL_cameraIndex)
+        VL_cameraBlock.addWidget(L_resultPlateOut)
+        VL_cameraBlock.addWidget(L_videoOut)
+
+        HL_cameraPosition.addWidget(L_cameraPosition)
+        HL_cameraPosition.addWidget(CB_cameraPosition)
+
+        HL_cameraIndex.addWidget(L_cameraIndex)
+        HL_cameraIndex.addWidget(CB_cameraIndex)
+
+        # VL_cameraBlock.setStretch()
+
+        # увеличение индекса (для создания корректных id новых блоков)
+        blockIndex += 1
+
+        CB_cameraIndex.currentIndexChanged.connect(self.runCamera)
+
+    def updateCameraBlock(self) -> None:
+        pass
+
+    def deleteCameraBlock(self) -> None:
+        pass
+
+    def carsTable(self):
+        self.table_window = TableWindow()  # Создаем экземпляр окна с таблицей
+        self.table_window.show()
+
+    def runCamera(self) -> int:
+        comboBox = self.sender()
+        blockID = int(comboBox.objectName().split('_')[-1])
+
+        for cameraUnit in self.activeCameraUnits:
+            if cameraUnit.blockID == blockID:
+                cameraUnit.stopCamera()
+                self.activeCameraUnits.remove(cameraUnit)
+
+        cameraIndex = comboBox.currentIndex() - 1
+
+        if cameraIndex == -1:
+            return -1
+
+        videoLabel = self.findChild(QtWidgets.QLabel, f'L_videoOut_{blockID}')
+        plateOutLabel = self.findChild(QtWidgets.QLabel, f'L_resultPlateOut_{blockID}')
+        cameraPosition = self.findChild(QtWidgets.QComboBox, f'CB_cameraPosition_{blockID}').currentIndex() - 1
+        cameraUnit = CameraUnit(blockID, cameraIndex, videoLabel, plateOutLabel, cameraPosition)
+        cameraUnit.runCamera()
+        self.activeCameraUnits.append(cameraUnit)
+
+        return 0
+
+    def fillAvailableCameras(self) -> None:
+        comboBoxes = [self.findChild(QtWidgets.QComboBox, f'CB_cameraIndex_{bi}') for bi in range(2, blockIndex)]
+        for cameraBox in comboBoxes:
+            cameraBox.clear()
+            cameraBox.addItem("")
+
+        availableCameras = self.getAvailableCameras()
+
+        for cameraIndex in availableCameras:
+            for cameraBox in comboBoxes:
+                cameraBox.addItem("Камера " + str(cameraIndex))
+
+    def getAvailableCameras(self, maxCameras=10) -> list:
+        availableCameras = list()
+        for index in range(maxCameras):
+            cap = cv2.VideoCapture(index)
+            if cap.isOpened():
+                availableCameras.append(index)
+                cap.release()  # Закрываем камеру после проверки
+
+        return availableCameras
+
+    def openImage(self) -> None:
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
+        if file_name:
+            image = cv2.imread(file_name)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            self.test_window = TestWindow(image)  # Создаем экземпляр окна с таблицей
+            self.test_window.show()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)  # Create an instance of QtWidgets.QApplication
-    window = Ui()  # Create an instance of our class
+    window = Ui2()  # Create an instance of our class
     app.exec_()  # Start the application
