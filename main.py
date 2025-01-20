@@ -1,7 +1,7 @@
 import numpy as np
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QWidget, QTableWidgetItem, QVBoxLayout, QLabel, \
-    QHBoxLayout, QComboBox
+    QHBoxLayout, QComboBox, QMessageBox
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -13,10 +13,10 @@ import sys
 import queue
 import time
 
-from db import DatabaseManager
+from db import Database
 from threads import CameraUnit, NnWorker
 
-blockIndex = 2
+MAXBLOCKINDEX = 2
 
 
 def excepthook(exc_type, exc_value, exc_tb):
@@ -38,16 +38,18 @@ class TableWindow(QWidget):  # Наследуемся от QWidget
 
         uic.loadUi('cars_table.ui', self)
 
-        self.db_manager = DatabaseManager()
+        self.db_manager = Database()
         self.data = self.db_manager.get_all_cars()
 
         self.tableWidget.setRowCount(len(self.data))
-        self.tableWidget.setColumnCount(3)
-        self.tableWidget.setHorizontalHeaderLabels(["Номер", "Позиция", "Время"])
+        self.tableWidget.setColumnCount(5)
+        self.tableWidget.setHorizontalHeaderLabels(["Номерной знак", "Имя", "Отдел", "Направление", "Дата и время"])
 
         # Заполняем таблицу данными
         for row_index, row_data in enumerate(self.data):
-            for col_index, value in enumerate(row_data[1:]):
+            for col_index, value in enumerate(row_data):
+                if value is None:
+                    value = 'Информация отсутствует'
                 item = QTableWidgetItem(str(value))
                 self.tableWidget.setItem(row_index, col_index, item)
 
@@ -55,7 +57,7 @@ class TableWindow(QWidget):  # Наследуемся от QWidget
         self.destroyed.connect(self.db_manager.close)
 
 
-class TestWindow(QWidget):  # Наследуемся от QWidget
+class PhotoTestWin(QWidget):  # Наследуемся от QWidget
     def __init__(self, image):
         super().__init__()
 
@@ -93,6 +95,23 @@ class TestWindow(QWidget):  # Наследуемся от QWidget
 
         return frame_cv2
 
+class VideoTestWin(QWidget):
+    def __init__(self, videoPath):
+        return -1  # требует доработки
+        super().__init__()
+        uic.loadUi('test_window.ui', self)
+
+        if not hasattr(self, 'videoL_1') or not hasattr(self, 'resultPlateOutL_1'):
+            raise AttributeError("Элементы videoL_1 или resultPlateOutL_1 не найдены в test_window.ui")
+        else:
+            print("all ok")
+
+        self.show()
+        cu = CameraUnit(0, videoPath, self.videoL_1, self.resultPlateOutL_1, 0)  # Инициализация CameraUnit
+        cu.testMode = True
+        cu.runCamera()
+
+
 
 class Ui(QMainWindow):
     def __init__(self):
@@ -101,136 +120,67 @@ class Ui(QMainWindow):
 
     def ui(self):
         uic.loadUi('main.ui', self)  # Load the .ui file
-        self.comboBoxes = [self.cameraNameCB_1, self.cameraNameCB_2]
-        self.fillAvailableCameras([self.cameraNameCB_1, self.cameraNameCB_2])
-
-        self.cameraNameCB_1.currentIndexChanged.connect(self.runCamera)
-        self.cameraNameCB_2.currentIndexChanged.connect(self.runCamera)
-
-        self.action.triggered.connect(self.carsTable)
-        self.actionImage.triggered.connect(self.openImage)
-
-        self.activeCameraUnits = list()
-
-        self.show()
-
-    def carsTable(self):
-        self.table_window = TableWindow()  # Создаем экземпляр окна с таблицей
-        self.table_window.show()
-
-    def runCamera(self) -> int:
-        comboBox = self.sender()
-        blockID = int(comboBox.objectName().split('_')[-1])
-
-        for cameraUnit in self.activeCameraUnits:
-            if cameraUnit.blockID == blockID:
-                cameraUnit.stopCamera()
-                self.activeCameraUnits.remove(cameraUnit)
-
-        cameraIndex = comboBox.currentIndex() - 1
-
-        if cameraIndex == -1:
-            return 0
-
-        videoLabel = self.findChild(QtWidgets.QLabel, f'videoL_{blockID}')
-        plateOutLabel = self.findChild(QtWidgets.QLabel, f'resultPlateOutL_{blockID}')
-        cameraUnit = CameraUnit(blockID, cameraIndex, videoLabel, plateOutLabel)
-        cameraUnit.runCamera()
-        self.activeCameraUnits.append(cameraUnit)
-
-        return 0
-
-    def fillAvailableCameras(self, *args) -> None:
-        for cameraBox in args[0]:
-            cameraBox.clear()
-            cameraBox.addItem("")
-
-        self.getAvailableCameras()
-
-        for cameraIndex in self.availableCameras:
-            for cameraBox in args[0]:
-                cameraBox.addItem("Камера " + str(cameraIndex))
-
-    def getAvailableCameras(self, maxCameras=10) -> None:
-        self.availableCameras = list()
-        for index in range(maxCameras):
-            cap = cv2.VideoCapture(index)
-            if cap.isOpened():
-                self.availableCameras.append(index)
-                cap.release()  # Закрываем камеру после проверки
-
-    def openImage(self) -> None:
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
-        if file_name:
-            image = cv2.imread(file_name)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            self.test_window = TestWindow(image)  # Создаем экземпляр окна с таблицей
-            self.test_window.show()
-
-
-class Ui2(QMainWindow):
-    def __init__(self):
-        super(Ui2, self).__init__()
-        self.ui()
-
-    def ui(self):
-        uic.loadUi('main3.ui', self)  # Load the .ui file
-        # self.fillAvailableCameras([self.cameraNameCB_1, self.cameraNameCB_2])
-
-        # self.cameraNameCB_1.currentIndexChanged.connect(self.runCamera)
-        # self.cameraNameCB_2.currentIndexChanged.connect(self.runCamera)
 
         self.A_notes.triggered.connect(self.carsTable)
         self.A_photo.triggered.connect(self.openImage)
+        self.A_video.triggered.connect(self.openVideo)
         self.A_add.triggered.connect(self.addCameraBlock)
         self.A_update.triggered.connect(self.fillAvailableCameras)
+        self.A_delete.triggered.connect(self.deleteCameraBlock)
+
+        CB_cameraIndex_1 = self.findChild(QtWidgets.QComboBox, 'CB_cameraIndex_1')
+        CB_cameraIndex_2 = self.findChild(QtWidgets.QComboBox, 'CB_cameraIndex_2')
+        CB_cameraIndex_1.currentIndexChanged.connect(self.runCamera)
+        CB_cameraIndex_2.currentIndexChanged.connect(self.runCamera)
 
         self.activeCameraUnits = list()
 
         self.show()
 
+        self.fillAvailableCameras()
+
     def addCameraBlock(self) -> None:
-        global blockIndex
+        global MAXBLOCKINDEX
+
+        # увеличение индекса (для создания корректных id новых блоков)
+        MAXBLOCKINDEX += 1
 
         # создание расположений (layout)
         VL_cameraBlock = QVBoxLayout()
-        VL_cameraBlock.setObjectName(f'VL_cameraBlock_{blockIndex}')
+        VL_cameraBlock.setObjectName(f'VL_cameraBlock_{MAXBLOCKINDEX}')
 
         HL_cameraPosition = QHBoxLayout()
-        HL_cameraPosition.setObjectName(f'HL_cameraPosition_{blockIndex}')
+        HL_cameraPosition.setObjectName(f'HL_cameraPosition_{MAXBLOCKINDEX}')
 
         HL_cameraIndex = QHBoxLayout()
-        HL_cameraIndex.setObjectName(f'HL_cameraIndex_{blockIndex}')
-
-        HL_cameraName = QHBoxLayout()
-        HL_cameraName.setObjectName(f'HL_cameraName_{blockIndex}')
+        HL_cameraIndex.setObjectName(f'HL_cameraIndex_{MAXBLOCKINDEX}')
 
         # создание меток (label)
-        L_cameraName = QLabel(f'Камера №{blockIndex}')
-        L_cameraName.setObjectName(f'L_cameraName_{blockIndex}')
+        L_cameraName = QLabel(f'Камера №{MAXBLOCKINDEX}')
+        L_cameraName.setObjectName(f'L_cameraName_{MAXBLOCKINDEX}')
 
         L_resultPlateOut = QLabel("Номер")
-        L_resultPlateOut.setObjectName(f'L_resultPlateOut_{blockIndex}')
+        L_resultPlateOut.setObjectName(f'L_resultPlateOut_{MAXBLOCKINDEX}')
 
         L_videoOut = QLabel("Видео")
-        L_videoOut.setObjectName(f'L_videoOut_{blockIndex}')
+        L_videoOut.setObjectName(f'L_videoOut_{MAXBLOCKINDEX}')
+        L_videoOut.setScaledContents(True)
 
         L_cameraPosition = QLabel("Расположение:")
-        L_cameraPosition.setObjectName(f'L_cameraPosition_{blockIndex}')
+        L_cameraPosition.setObjectName(f'L_cameraPosition_{MAXBLOCKINDEX}')
 
         L_cameraIndex = QLabel("Камера:")
-        L_cameraIndex.setObjectName(f'L_cameraIndex_{blockIndex}')
+        L_cameraIndex.setObjectName(f'L_cameraIndex_{MAXBLOCKINDEX}')
 
         # создание выпадающих списков (combo box)
         CB_cameraPosition = QComboBox()
-        CB_cameraPosition.setObjectName(f'CB_cameraPosition_{blockIndex}')
+        CB_cameraPosition.setObjectName(f'CB_cameraPosition_{MAXBLOCKINDEX}')
         CB_cameraPosition.addItem('')
         CB_cameraPosition.addItem('Въезд')
         CB_cameraPosition.addItem('Выезд')
 
         CB_cameraIndex = QComboBox()
-        CB_cameraIndex.setObjectName(f'CB_cameraIndex_{blockIndex}')
+        CB_cameraIndex.setObjectName(f'CB_cameraIndex_{MAXBLOCKINDEX}')
 
         # добавление всех элементов
         self.HL_mainLayout.addLayout(VL_cameraBlock)
@@ -247,18 +197,49 @@ class Ui2(QMainWindow):
         HL_cameraIndex.addWidget(L_cameraIndex)
         HL_cameraIndex.addWidget(CB_cameraIndex)
 
-        # VL_cameraBlock.setStretch()
-
-        # увеличение индекса (для создания корректных id новых блоков)
-        blockIndex += 1
-
         CB_cameraIndex.currentIndexChanged.connect(self.runCamera)
+        self.fillAvailableCameras()
 
     def updateCameraBlock(self) -> None:
         pass
 
     def deleteCameraBlock(self) -> None:
-        pass
+        global MAXBLOCKINDEX
+
+        cameraBlock = self.findChild(QtWidgets.QVBoxLayout, f'VL_cameraBlock_{MAXBLOCKINDEX}')
+        cameraBlock.deleteLater()
+
+        VL_cameraBlock = self.findChild(QtWidgets.QVBoxLayout, f'VL_cameraBlock_{MAXBLOCKINDEX}')
+        HL_cameraPosition = self.findChild(QtWidgets.QHBoxLayout, f'HL_cameraPosition_{MAXBLOCKINDEX}')
+        HL_cameraIndex = self.findChild(QtWidgets.QHBoxLayout, f'HL_cameraIndex_{MAXBLOCKINDEX}')
+
+        L_cameraName = self.findChild(QtWidgets.QLabel, f'L_cameraName_{MAXBLOCKINDEX}')
+        L_resultPlateOut = self.findChild(QtWidgets.QLabel, f'L_resultPlateOut_{MAXBLOCKINDEX}')
+        L_videoOut = self.findChild(QtWidgets.QLabel, f'L_videoOut_{MAXBLOCKINDEX}')
+        L_cameraPosition = self.findChild(QtWidgets.QLabel, f'L_cameraPosition_{MAXBLOCKINDEX}')
+        L_cameraIndex = self.findChild(QtWidgets.QLabel, f'L_cameraIndex_{MAXBLOCKINDEX}')
+
+        CB_cameraPosition = self.findChild(QtWidgets.QComboBox, f'CB_cameraPosition_{MAXBLOCKINDEX}')
+        CB_cameraIndex = self.findChild(QtWidgets.QComboBox, f'CB_cameraIndex_{MAXBLOCKINDEX}')
+
+        # удаление объектов QLabel
+        L_cameraName.deleteLater()
+        L_resultPlateOut.deleteLater()
+        L_videoOut.deleteLater()
+        L_cameraPosition.deleteLater()
+        L_cameraIndex.deleteLater()
+
+        # Удаление объектов QComboBox
+        CB_cameraPosition.deleteLater()
+        CB_cameraIndex.deleteLater()
+
+        # Удаление объектов QLayout
+        VL_cameraBlock.deleteLater()
+        HL_cameraPosition.deleteLater()
+        HL_cameraIndex.deleteLater()
+
+        MAXBLOCKINDEX -= 1
+
 
     def carsTable(self):
         self.table_window = TableWindow()  # Создаем экземпляр окна с таблицей
@@ -280,7 +261,8 @@ class Ui2(QMainWindow):
 
         videoLabel = self.findChild(QtWidgets.QLabel, f'L_videoOut_{blockID}')
         plateOutLabel = self.findChild(QtWidgets.QLabel, f'L_resultPlateOut_{blockID}')
-        cameraPosition = self.findChild(QtWidgets.QComboBox, f'CB_cameraPosition_{blockID}').currentIndex() - 1
+        cameraPosition = self.findChild(QtWidgets.QComboBox, f'CB_cameraPosition_{blockID}').currentIndex()
+        cameraPosition = ['Информация отсутствует', 'Въезд', 'Выезд'][cameraPosition]
         cameraUnit = CameraUnit(blockID, cameraIndex, videoLabel, plateOutLabel, cameraPosition)
         cameraUnit.runCamera()
         self.activeCameraUnits.append(cameraUnit)
@@ -288,7 +270,7 @@ class Ui2(QMainWindow):
         return 0
 
     def fillAvailableCameras(self) -> None:
-        comboBoxes = [self.findChild(QtWidgets.QComboBox, f'CB_cameraIndex_{bi}') for bi in range(2, blockIndex)]
+        comboBoxes = [self.findChild(QtWidgets.QComboBox, f'CB_cameraIndex_{bi}') for bi in range(1, MAXBLOCKINDEX + 1)]
         for cameraBox in comboBoxes:
             cameraBox.clear()
             cameraBox.addItem("")
@@ -299,7 +281,7 @@ class Ui2(QMainWindow):
             for cameraBox in comboBoxes:
                 cameraBox.addItem("Камера " + str(cameraIndex))
 
-    def getAvailableCameras(self, maxCameras=10) -> list:
+    def getAvailableCameras(self, maxCameras=2) -> list:
         availableCameras = list()
         for index in range(maxCameras):
             cap = cv2.VideoCapture(index)
@@ -315,11 +297,16 @@ class Ui2(QMainWindow):
             image = cv2.imread(file_name)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-            self.test_window = TestWindow(image)  # Создаем экземпляр окна с таблицей
+            self.test_window = PhotoTestWin(image)  # Создаем экземпляр окна с таблицей
             self.test_window.show()
+
+    def openVideo(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Video", "", "Все файлы (*.*)")
+        print(file_path)
+        vt = VideoTestWin(file_path)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)  # Create an instance of QtWidgets.QApplication
-    window = Ui2()  # Create an instance of our class
+    window = Ui()  # Create an instance of our class
     app.exec_()  # Start the application

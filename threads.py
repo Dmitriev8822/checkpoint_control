@@ -1,6 +1,6 @@
 import numpy as np
-from PyQt5 import uic, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QWidget, QTableWidgetItem
+from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QDialogButtonBox, QMessageBox
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -13,10 +13,17 @@ import queue
 import time
 
 from YOLO.yolov8 import main as nn
-from db import DatabaseManager
+from db import Database
 
 FPS = 120
 
+def excepthook(exc_type, exc_value, exc_tb):
+    tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    print("Oбнаружена ошибка !:", tb)
+    QtWidgets.QApplication.quit()
+
+
+sys.excepthook = excepthook
 
 class NnWorker(QThread):
     resultsReady = pyqtSignal(str)
@@ -46,7 +53,7 @@ class NnWorker(QThread):
                 predicts = list(filter(self.isNormalPlate, predicts))
                 predicts.sort(key=lambda predict: -(predict[1][2] - predict[1][0]))
                 print("After filter and sort list", predicts)
-                predict = "Not recognized"
+                predict = "Не распознан"
                 if predicts != list():
                     predict = predicts[0][0]
 
@@ -117,12 +124,15 @@ class CameraUnit:
         self.recPlates = list()
         self.recPlatesCntEmpty = 0
 
-        self.db = DatabaseManager()
-        self.connectDB()
+        self.testMode = False
+
+        self.db = None
+        if not self.testMode:
+            self.db = Database()
+            self.connectDB()
 
     def connectDB(self):
-        self.db.connect()
-        self.db.create_table()
+        self.db.create_tables()
 
     def runCamera(self):
         self.cameraTheard = CameraThread(self.cameraIndex)
@@ -159,7 +169,7 @@ class CameraUnit:
         self.nnWorker.add_frame(frame_cv2)
 
     def handleNnResults(self, result: str) -> None:
-        if result != "Not recognized":
+        if result != "Номер не был распознан":
             self.recPlates.append(result)
             if len(self.recPlates) > 10:
                 self.getMostPopularPlate()
@@ -173,9 +183,25 @@ class CameraUnit:
             lPlateCnt = self.recPlates.count(plate)
             if lPlateCnt >= int(len(self.recPlates) * 0.6):
                 if self.mostPopularPlate != plate:
-                    self.db.add_car(plate, self.pos)
-                self.mostPopularPlate = plate
+                    self.mostPopularPlate = plate
+                    if (not self.testMode) and plate != "Не распознан" and self.checkAccess(plate):
+                        self.db.add_car(plate, self.pos)
+                        # команда на открытие шлагбаума / ворот
+
         self.recPlates = list()
+
+    def checkAccess(self, plate):
+        if self.db.find_employee(plate):
+            return True
+
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Question)
+        msg.setText(f"Автомобиль с номером <{plate}> не найден в базе данных сотрудников.\nПропустить автомобиль?")
+        msg.setWindowTitle("Неизвестный автомобиль")
+        msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        retval = msg.exec_()
+
+        return retval == QMessageBox.Ok
 
     def stopCamera(self):
         if self.cameraTheard is not None:
@@ -191,4 +217,6 @@ class CameraUnit:
 
         self.plateOutLabel.clear()
         self.videoLabel.clear()
-        self.videoLabel.setText("Video")
+        self.videoLabel.setText("Видео")
+
+
