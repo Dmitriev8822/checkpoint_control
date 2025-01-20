@@ -31,7 +31,7 @@ class Employees(Base):
 
 
 class Database:
-    def __init__(self, db_url="postgresql+psycopg2://postgres:HF352klpbn@localhost:5432/access_control"):
+    def __init__(self, db_url="postgresql+psycopg2://postgres:PASSWORD@localhost:5432/access_control"): # !Change
         self.db_url = db_url
         self.engine = create_engine(self.db_url)
         self.Session = sessionmaker(bind=self.engine)
