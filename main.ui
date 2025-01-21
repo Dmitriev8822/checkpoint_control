@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>761</width>
-    <height>571</height>
+    <width>1033</width>
+    <height>625</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,149 +17,13 @@
    <iconset>
     <normaloff>logo.ico</normaloff>logo.ico</iconset>
   </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: lightgray;</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
-     <layout class="QHBoxLayout" name="HL_mainLayout">
-      <item>
-       <layout class="QVBoxLayout" name="VL_cameraBlock_1">
-        <item>
-         <widget class="QLabel" name="L_cameraName_1">
-          <property name="text">
-           <string>Камера №1</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="HL_cameraPosition_1">
-          <item>
-           <widget class="QLabel" name="L_cameraPosition_1">
-            <property name="text">
-             <string>Расположение:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="CB_cameraPosition_1">
-            <item>
-             <property name="text">
-              <string/>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Въезд</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Выезд</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="HL_cameraIndex_1">
-          <item>
-           <widget class="QLabel" name="L_cameraIndex_1">
-            <property name="text">
-             <string>Камера:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="CB_cameraIndex_1"/>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="QLabel" name="L_resultPlateOut_1">
-          <property name="text">
-           <string>Номер</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="L_videoOut_1">
-          <property name="text">
-           <string>Видео</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QVBoxLayout" name="VL_cameraBlock_2">
-        <item>
-         <widget class="QLabel" name="L_cameraName_2">
-          <property name="text">
-           <string>Камера №2</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="HL_cameraPosition_2">
-          <item>
-           <widget class="QLabel" name="L_cameraPosition_2">
-            <property name="text">
-             <string>Расположение:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="CB_cameraPosition_2">
-            <item>
-             <property name="text">
-              <string/>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Въезд</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Выезд</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="HL_cameraIndex_2">
-          <item>
-           <widget class="QLabel" name="L_cameraIndex_2">
-            <property name="text">
-             <string>Камера:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="CB_cameraIndex_2"/>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="QLabel" name="L_resultPlateOut_2">
-          <property name="text">
-           <string>Номер</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="L_videoOut_2">
-          <property name="text">
-           <string>Видео</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
+     <layout class="QHBoxLayout" name="HL_mainLayout"/>
     </item>
    </layout>
   </widget>
@@ -168,7 +32,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>761</width>
+     <width>1033</width>
      <height>26</height>
     </rect>
    </property>

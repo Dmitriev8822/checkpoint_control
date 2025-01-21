@@ -216,7 +216,14 @@ class CameraUnit:
         self.db.close()
 
         self.plateOutLabel.clear()
+        self.plateOutLabel.setText('Номер')
         self.videoLabel.clear()
-        self.videoLabel.setText("Видео")
+
+        image_path = r"C:\Users\racco\Downloads\cameraPicS.jpg"  # Укажите реальный путь
+        pixmap = QPixmap(image_path)
+        if not pixmap.isNull():
+            self.videoLabel.setPixmap(pixmap)
+        else:
+            self.videoLabel.setText("Не удалось загрузить изображение")
 
 

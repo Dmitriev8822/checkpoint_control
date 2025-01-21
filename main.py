@@ -1,10 +1,11 @@
 import numpy as np
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QWidget, QTableWidgetItem, QVBoxLayout, QLabel, \
-    QHBoxLayout, QComboBox, QMessageBox
+    QHBoxLayout, QComboBox, QMessageBox, QFrame, QSpacerItem, QSizePolicy
 from PyQt5.QtCore import QTimer
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap, QImage, QFont
 from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import Qt
 
 import traceback
 
@@ -16,7 +17,7 @@ import time
 from db import Database
 from threads import CameraUnit, NnWorker
 
-MAXBLOCKINDEX = 2
+MAXBLOCKINDEX = 0
 
 
 def excepthook(exc_type, exc_value, exc_tb):
@@ -128,39 +129,45 @@ class Ui(QMainWindow):
         self.A_update.triggered.connect(self.fillAvailableCameras)
         self.A_delete.triggered.connect(self.deleteCameraBlock)
 
-        CB_cameraIndex_1 = self.findChild(QtWidgets.QComboBox, 'CB_cameraIndex_1')
-        CB_cameraIndex_2 = self.findChild(QtWidgets.QComboBox, 'CB_cameraIndex_2')
-        CB_cameraIndex_1.currentIndexChanged.connect(self.runCamera)
-        CB_cameraIndex_2.currentIndexChanged.connect(self.runCamera)
-
         self.activeCameraUnits = list()
 
         self.show()
 
-        self.fillAvailableCameras()
+        # self.fillAvailableCameras()
+
+        for i in range(2):
+            self.addCameraBlock()
 
     def addCameraBlock(self) -> None:
         global MAXBLOCKINDEX
 
-        # увеличение индекса (для создания корректных id новых блоков)
+        # Увеличение индекса (для создания корректных id новых блоков)
         MAXBLOCKINDEX += 1
 
-        # создание расположений (layout)
-        VL_cameraBlock = QVBoxLayout()
-        VL_cameraBlock.setObjectName(f'VL_cameraBlock_{MAXBLOCKINDEX}')
+        # Создаем виджет-блок
+        cameraBlockWidget = QWidget()
+        cameraBlockWidget.setObjectName(f'cameraBlock_{MAXBLOCKINDEX}')  # Имя для стилей
 
+        # Создаем основной компоновщик для блока
+        VL_cameraBlock = QVBoxLayout(cameraBlockWidget)
+
+        # Создание расположений (layout)
         HL_cameraPosition = QHBoxLayout()
         HL_cameraPosition.setObjectName(f'HL_cameraPosition_{MAXBLOCKINDEX}')
 
         HL_cameraIndex = QHBoxLayout()
         HL_cameraIndex.setObjectName(f'HL_cameraIndex_{MAXBLOCKINDEX}')
 
-        # создание меток (label)
+        # Создание меток (label)
         L_cameraName = QLabel(f'Камера №{MAXBLOCKINDEX}')
         L_cameraName.setObjectName(f'L_cameraName_{MAXBLOCKINDEX}')
+        L_cameraName.setAlignment(Qt.AlignCenter)
+        L_cameraName.setFixedHeight(50)
 
         L_resultPlateOut = QLabel("Номер")
         L_resultPlateOut.setObjectName(f'L_resultPlateOut_{MAXBLOCKINDEX}')
+        L_resultPlateOut.setAlignment(Qt.AlignCenter)
+        L_resultPlateOut.setFixedHeight(50)
 
         L_videoOut = QLabel("Видео")
         L_videoOut.setObjectName(f'L_videoOut_{MAXBLOCKINDEX}')
@@ -168,11 +175,13 @@ class Ui(QMainWindow):
 
         L_cameraPosition = QLabel("Расположение:")
         L_cameraPosition.setObjectName(f'L_cameraPosition_{MAXBLOCKINDEX}')
+        L_cameraPosition.setAlignment(Qt.AlignLeft)
 
         L_cameraIndex = QLabel("Камера:")
         L_cameraIndex.setObjectName(f'L_cameraIndex_{MAXBLOCKINDEX}')
+        L_cameraIndex.setAlignment(Qt.AlignLeft)
 
-        # создание выпадающих списков (combo box)
+        # Создание выпадающих списков (combo box)
         CB_cameraPosition = QComboBox()
         CB_cameraPosition.setObjectName(f'CB_cameraPosition_{MAXBLOCKINDEX}')
         CB_cameraPosition.addItem('')
@@ -182,23 +191,69 @@ class Ui(QMainWindow):
         CB_cameraIndex = QComboBox()
         CB_cameraIndex.setObjectName(f'CB_cameraIndex_{MAXBLOCKINDEX}')
 
-        # добавление всех элементов
-        self.HL_mainLayout.addLayout(VL_cameraBlock)
+        line = QFrame(self)
+        line.setFrameShape(QFrame.HLine)  # Устанавливаем форму линии (горизонтальная)
+        line.setFrameShadow(QFrame.Sunken)
 
-        VL_cameraBlock.addWidget(L_cameraName)
-        VL_cameraBlock.addLayout(HL_cameraPosition)
-        VL_cameraBlock.addLayout(HL_cameraIndex)
-        VL_cameraBlock.addWidget(L_resultPlateOut)
-        VL_cameraBlock.addWidget(L_videoOut)
+        line2 = QFrame(self)
+        line2.setFrameShape(QFrame.HLine)  # Устанавливаем форму линии (горизонтальная)
+        line2.setFrameShadow(QFrame.Sunken)
+
+        line3 = QFrame(self)
+        line3.setFrameShape(QFrame.HLine)  # Устанавливаем форму линии (горизонтальная)
+        line3.setFrameShadow(QFrame.Sunken)
+
+        line4 = QFrame(self)
+        line4.setFrameShape(QFrame.HLine)  # Устанавливаем форму линии (горизонтальная)
+        line4.setFrameShadow(QFrame.Sunken)
+
+        # Добавление элементов в layouts
+        VL_cameraBlock.addWidget(L_cameraName, stretch=1)  # Растяжение для имени камеры
+        VL_cameraBlock.addWidget(line)
+        VL_cameraBlock.addLayout(HL_cameraPosition, stretch=2)  # Больше места для позиции
+        VL_cameraBlock.addWidget(line4)
+        VL_cameraBlock.addLayout(HL_cameraIndex, stretch=2)
+        VL_cameraBlock.addWidget(line2)
+        VL_cameraBlock.addWidget(L_resultPlateOut, stretch=1)  # Меньше места для номера
+        VL_cameraBlock.addWidget(line3)
+        VL_cameraBlock.addWidget(L_videoOut, stretch=4)  # Видео занимает больше места
 
         HL_cameraPosition.addWidget(L_cameraPosition)
         HL_cameraPosition.addWidget(CB_cameraPosition)
 
+
         HL_cameraIndex.addWidget(L_cameraIndex)
         HL_cameraIndex.addWidget(CB_cameraIndex)
 
+        # Добавляем блок на главную форму
+        self.HL_mainLayout.addWidget(cameraBlockWidget)
+
+        # Подключение сигналов
         CB_cameraIndex.currentIndexChanged.connect(self.runCamera)
-        self.fillAvailableCameras()
+        # self.fillAvailableCameras()
+
+        cameraBlockWidget.setStyleSheet("""
+            QWidget#cameraBlock_""" + str(MAXBLOCKINDEX) + """ {
+                font-family: 'Open Sans';
+                background-color: lightgray;
+                border: 1px solid black;
+                border-radius: 15px;
+                padding: 10px;
+            }
+            QLabel#L_resultPlateOut_""" + str(MAXBLOCKINDEX) + """ {
+                font-size: 16pt;
+                font-style: bold;
+            }
+            
+        """)
+
+        image_path = r"C:\Users\racco\Downloads\cameraPicS.jpg" # Укажите реальный путь
+        pixmap = QPixmap(image_path)
+        if not pixmap.isNull():
+            L_videoOut.setPixmap(pixmap)
+        else:
+            L_videoOut.setText("Не удалось загрузить изображение")
+
 
     def updateCameraBlock(self) -> None:
         pass
@@ -308,5 +363,7 @@ class Ui(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)  # Create an instance of QtWidgets.QApplication
+    default_font = QFont("Open Sans", 14)  # Шрифт Open Sans, размер 12
+    app.setFont(default_font)
     window = Ui()  # Create an instance of our class
     app.exec_()  # Start the application
