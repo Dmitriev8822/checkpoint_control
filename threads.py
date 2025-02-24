@@ -17,6 +17,7 @@ from db import Database
 
 FPS = 120
 
+
 def excepthook(exc_type, exc_value, exc_tb):
     tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
     print("Oбнаружена ошибка !:", tb)
@@ -24,6 +25,7 @@ def excepthook(exc_type, exc_value, exc_tb):
 
 
 sys.excepthook = excepthook
+
 
 class NnWorker(QThread):
     resultsReady = pyqtSignal(str)
@@ -225,5 +227,3 @@ class CameraUnit:
             self.videoLabel.setPixmap(pixmap)
         else:
             self.videoLabel.setText("Не удалось загрузить изображение")
-
-

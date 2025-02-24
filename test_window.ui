@@ -17,6 +17,9 @@
    <iconset>
     <normaloff>logo.ico</normaloff>logo.ico</iconset>
   </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: lightgray;</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="1,3">
    <item>
     <widget class="QLabel" name="resultPlateOutL_1">

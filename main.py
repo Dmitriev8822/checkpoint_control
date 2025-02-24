@@ -247,7 +247,7 @@ class Ui(QMainWindow):
             
         """)
 
-        image_path = r"C:\Users\racco\Downloads\cameraPicS.jpg" # Укажите реальный путь
+        image_path = r"cameraPicS.jpg" # Укажите реальный путь
         pixmap = QPixmap(image_path)
         if not pixmap.isNull():
             L_videoOut.setPixmap(pixmap)
