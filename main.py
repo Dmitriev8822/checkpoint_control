@@ -138,6 +138,47 @@ class Ui(QMainWindow):
         for i in range(2):
             self.addCameraBlock()
 
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #000032;
+                color: #dcdcc8;
+            }
+            QPushButton {
+                background-color: #222;
+                border: 1px solid white;
+                color: #dcdcc8;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+            QLabel {
+                color: #dcdcc8;
+            }
+            QTableWidget {
+                background-color: black;
+                color: #dcdcc8;
+                gridline-color: white;
+                border: 1px solid white;
+            }
+            QHeaderView::section {
+                background-color: #333;
+                color: #dcdcc8;
+                border: 1px solid white;
+            }
+            QComboBox {
+                background-color: #222;
+                color: #dcdcc8;
+                border: 1px solid white;
+            }
+            QLineEdit {
+                background-color: #222;
+                color: #dcdcc8;
+                border: 1px solid white;
+            }
+        """)
+
     def addCameraBlock(self) -> None:
         global MAXBLOCKINDEX
 
@@ -232,20 +273,20 @@ class Ui(QMainWindow):
         CB_cameraIndex.currentIndexChanged.connect(self.runCamera)
         # self.fillAvailableCameras()
 
-        cameraBlockWidget.setStyleSheet("""
-            QWidget#cameraBlock_""" + str(MAXBLOCKINDEX) + """ {
-                font-family: 'Open Sans';
-                background-color: lightgray;
-                border: 1px solid black;
-                border-radius: 15px;
-                padding: 10px;
-            }
-            QLabel#L_resultPlateOut_""" + str(MAXBLOCKINDEX) + """ {
-                font-size: 16pt;
-                font-style: bold;
-            }
-            
-        """)
+        # cameraBlockWidget.setStyleSheet("""
+        #     QWidget#cameraBlock_""" + str(MAXBLOCKINDEX) + """ {
+        #         font-family: 'Open Sans';
+        #         background-color: lightgray;
+        #         border: 1px solid black;
+        #         border-radius: 15px;
+        #         padding: 10px;
+        #     }
+        #     QLabel#L_resultPlateOut_""" + str(MAXBLOCKINDEX) + """ {
+        #         font-size: 16pt;
+        #         font-style: bold;
+        #     }
+        #
+        # """)
 
         image_path = r"cameraPicS.jpg" # Укажите реальный путь
         pixmap = QPixmap(image_path)
